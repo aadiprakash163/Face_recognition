@@ -1,0 +1,636 @@
+
+
+\documentclass{beamer}
+
+
+\usetheme{Madrid}
+
+\usepackage{ragged2e}
+\usepackage{subfig}
+\usepackage{graphicx}
+\usepackage{color}
+\usepackage{algorithmic, algorithm2e, float}
+\usepackage[absolute,overlay]{textpos}
+\usepackage{pbox}
+
+\SetAlFnt{\small}
+\SetAlCapFnt{\small}
+\SetAlCapNameFnt{\small}
+\setbeamertemplate{caption}[numbered]
+
+\title[Formal Verification of HAIM]{Formal Verification of Heuristic Autonomous Intersection Management}
+
+
+\subtitle{Using UPPAAL Statistical Model Checker (SMC)}
+
+\author[A.P. Chouhan]{Aaditya~Prakash~Chouhan\\~\\ Supervised by:\\ Dr. Gourinath~Banda}
+% - Give the names in the same order as the appear in the paper.
+% - Use the \inst{?} command only if the authors have different
+%   affiliation.
+
+\institute[IIT Indore] % (optional, but mostly needed)
+{
+  %
+  Discipline of Computer Science and Engineering  
+}
+% - Use the \inst command only if there are several affiliations.
+% - Keep it simple, no one is interested in your street address.
+
+\date[14 January 2019]{CERP-2019 \\ Indian Institute of Technology Indore}
+% - Either use conference name or its abbreviation.
+% - Not really informative to the audience, more for people (including
+%   yourself) who are reading the slides online
+
+% \subject{Uppaal verification of AIM}
+% This is only inserted into the PDF information catalog. Can be left
+% out. 
+
+% If you have a file called "university-logo-filename.xxx", where xxx
+% is a graphic format that can be processed by latex or pdflatex,
+% resp., then you can add a logo as follows:
+
+% \pgfdeclareimage[height=0.5cm]{university-logo}{university-logo-filename}
+% \logo{\pgfuseimage{university-logo}}
+
+% Delete this, if you do not want the table of contents to pop up at
+% the beginning of each subsection:
+
+% Un-comment these lines to show section layout after every subsection
+% \AtBeginSubsection[]
+% {
+%   \begin{frame}<beamer>{Outline}
+%     \tableofcontents[currentsection,currentsubsection]
+%   \end{frame}
+% }
+
+% Let's get started
+\begin{document}
+
+\begin{frame}
+  \titlepage
+\end{frame}
+
+\begin{frame}{Outline}
+  \tableofcontents
+  % You might wish to add the option [pausesections]
+\end{frame}
+
+% Section and subsections will appear in the presentation overview
+% and table of contents.
+
+
+
+\section{Autonomous Intersection Management (AIM)}
+
+% \subsection{Problem Description}
+
+\begin{frame}{Autonomous Intersection Management}{Problem Description}
+\begin{itemize}
+ \item In this problem, we are required to schedule incoming vehicles to an intersection such that:  
+  \begin{itemize}
+  
+  \item No two vehicles are present at the same position at the same time, and
+  \item The delay caused in each vehicle's trip is minimum.\\~\\
+  
+  \end{itemize}
+  
+  \item Traffic lights are not present at the intersection; rather, there is a central controller which communicates with incoming vehicles using wireless communication.
+\end{itemize}
+
+\end{frame}
+
+
+% with the \pause command:
+\begin{frame}{System Architecture}
+  We consider the following intersection; it has 4 roads with 3 lanes in either (incoming and outgoing) directions. Intersection diagram and it's infrastructural constants are shown in figures below.% \ref{i_diagram} and 
+
+\begin{figure}[ht]
+        \begin{minipage}[b]{0.30\linewidth}
+            \centering
+%             \includegraphics[width = \textwidth,trim=1cm 2cm 2cm 2cm,clip]{I_diagram}
+	    \includegraphics[scale = 0.35]{figures/int_model}
+% 	    \includegraphics[width = \textwidth,trim=1cm 2cm 2cm 2cm,clip]{I_diagram}
+            \caption{Intersection model}
+            \label{i_diagram}
+        \end{minipage}
+        \hspace{1cm}
+        \begin{minipage}[b]{0.30\linewidth}
+            %\centering
+            % \includegraphics[height=5cm,trim=0cm 0cm 0cm 5cm,clip]{IS_cropped}
+            \includegraphics[width=5.5cm]{figures/IS_cropped}
+            \caption{Architectural values used}
+            \label{infra_constants}
+        \end{minipage}
+    \end{figure}
+
+\end{frame}
+
+% \subsection{Assumptions Made}
+\begin{frame}{Assumptions Made}
+  Following assumptions are made\footnotemark.
+    \begin{itemize}
+        \item Autonomous vehicles only.
+        \item Traffic is sorted.
+        \item Fixed turning trajectory.
+        \item Flawless communication.
+    \end{itemize}
+    % With the lane and trajectory restrictions in place, the AIM problem reduces to scheduling vehicles only at the intersection points of lane to lane connections here termed as Conflict Points (CP) as shown in Figure \ref{i_diagram}.
+    
+    \footnotetext{The assumptions listed here are same as those reported in the publication:\\ A. P. Chouhan and G. Banda, "Autonomous Intersection Management: A Heuristic Approach," in IEEE Access, vol. 6, pp. 53287-53295, 2018.}
+\end{frame}
+
+\section{Heuristic AIM}
+\begin{frame}{Heuristic AIM}
+
+    To schedule vehicles at these conflict points, we make use of a three leveled heuristic consisting of following three levels:
+    \begin{enumerate}
+    \item \textcolor{blue}{FEFS Scheme:} Schedules vehicles in the order of their entry. Hence the name First Enter First Serve (FEFS).\\~\\
+    \item \textcolor{blue}{Window scheme:} Reduces delay further; also prevents system from creating delay pile.\\~\\
+    \item \textcolor{blue}{Reservation scheme:} Guarantees no collision requirement.
+    \end{enumerate}
+    
+\end{frame}
+
+
+
+\subsection{FEFS Scheme}
+\begin{frame}{FEFS Scheme}
+  \begin{itemize}
+    \item Schedules vehicles in order of their entry.\\~\\
+    \item Resolve conflicts only at first two conflict points.\\~\\
+    \item Schedules majority of vehicles at low traffic.\\~\\
+    
+  \end{itemize}
+  FEFS algorithm is given next.
+
+\end{frame}
+
+\begin{frame}{FEFS Algorithm}
+    \begin{algorithm}[H]
+    \algsetup{linenosize=\footnotesize}
+        % \vspace{0.5cm}
+        \DontPrintSemicolon 
+        \KwIn{ $I=\{VehId, L_s, L_d, V_{enter}, VehLength, VehAcc, V_{lane}\}$ }
+        \KwOut{$ O = {VehId, V_{FEFS}} $}
+        $V_{temp} \gets V_{lane}$\;
+        $cp1\_clear \gets 0$\;
+        \While{$(cp_1\_clear == 0) $} {
+        
+          $cp1\_time =  find\_cp_1\_time(V_{lane})$\;
+          \While{$ (cp_1\_time < (cp_1\_register + safety\_gap)) $}
+            {
+              $ V_{temp} \gets V_{temp} - \Delta V_{temp} $\;
+               Update $\: cp_1\_time $\;
+            }
+          $ cp_1\_clear = 1 $\;
+        %   find $ cp_2\_time $\;
+          $cp2\_time =  find\_cp_2\_time(V_{lane})$\;
+          \While{$ (cp_2\_time < (cp_2\_register + safety\_gap)) $}
+            {
+               $ cp_1\_clear = 0 $\;
+               $ V_{temp} \gets V_{temp} - \Delta V_{temp} $\;
+               Update $\: cp_2\_time $\;
+            }
+        }
+        
+        % $ V_{FEFS} = V_{temp} $
+        
+        \Return{$V_{FEFS} = V_{temp}$}\;
+        \caption{{\sc FEFS:} Finds velocity for vehicles after resolving conflicts at first and second CPs}
+        \label{algo:FEFS}
+        \end{algorithm}
+        % \vspace{0.5cm}
+    
+\end{frame}
+
+\subsection{Window Scheme}
+\begin{frame}{Window Scheme}
+
+  \begin{itemize}
+    \item Finds window in past reservations.\\~\\
+    \item Breaks delay pile and resolves some of the conflicts caused in FEFS scheme.\\~\\
+    \item If it returns a velocity, it will be collision free.\\~\\
+    
+  \end{itemize}
+  Window algorithm is given next.
+\end{frame}
+
+\begin{frame}{Window Algorithm}
+  
+    \begin{algorithm}[H]
+    
+        \KwIn{$I = {V_{lane}, V_{ref}} $}
+        \KwOut{$ O = V_{window} $}
+        $ Vel\_wo\_window = V_{FEFS}$
+        \If{$Velocity\_wo\_window < V_{ref}$}
+        { 
+        %   $ Velocity\_wo\_window \gets V_{lane} $\;
+          $ cp1\_clear, cp2\_clear, cp3\_clear, cp4\_clear \gets 0 $\;
+          $ V_{temp} \gets V_{lane}$\;
+          \While{$!(cp1\_clear \& cp2\_clear \& cp3\_clear \& cp4\_clear) $}
+          {
+            $ cp1\_clear = findWindow(cp1, V_{temp}) $\;
+            $ cp2\_clear = findWindow(cp2, V_{temp}) $\;
+            $ cp3\_clear = findWindow(cp3, V_{temp}) $\;
+            $ cp4\_clear = findWindow(cp4, V_{temp}) $\;
+            $ V_{temp} \gets V_{temp} - \Delta V_{temp} $\;
+          }
+        }
+        $ V_{window} \gets V_{temp} $
+        % \pagebreak
+        \Return{$V_{window}$}\;
+        % \caption{{\sc WindowAlgo}}
+        \label{algo:Window}
+    
+    \end{algorithm}
+\end{frame}
+
+
+
+\subsection{Reservation Scheme}
+\begin{frame}{Reservation Scheme}
+  \begin{itemize}
+   \item Reservation scheme guarantees the no collision condition.\\~\\
+   \item Same as FEFS scheme, except it schedules vehicles at all the 4 conflict points.\\~\\
+  \end{itemize}
+
+\end{frame}
+
+% \subsection{Decision Flow}
+\begin{frame}{Decision Flow}
+    Following flowchart gives the decision flow logic of the presented algorithm.
+    \begin{figure}
+        \centering
+        \includegraphics[scale = 0.3]{figures/DecisionFlow.pdf}
+        \caption{Heuristic decision flow diagram}
+        \label{flowchart}
+    \end{figure}    
+\end{frame}
+
+\section{Checking Correctness of Heuristic Algorithm}
+
+\begin{frame}{Correctness Checking}
+  Correctness checking is required because,
+  \begin{itemize}
+   \item Simulation is not sufficient.
+   \item Industry standards require the vehicle technology to be safe.
+  \end{itemize}
+  Certifying authorities such as NHTSA\footnotemark set guidelines for autonomous vehicle technology manufacturers and ask for compliance of standards such as ISO 26262, IEC 61508 etc.\\~\\
+  These standards have system verification and validation as integral parts. 
+
+ \footnotetext{National Highway Traffic Safety Administration\\ \texttt{https://www.transportation.gov/av/3} }
+\end{frame}
+
+\begin{frame}{Formal Verification}
+  \begin{itemize}
+  \item applies mathematics to solve the system (HW/SW) correctness problem
+  \end{itemize}
+  
+  \begin{block}{Definition (System correctness problem)}
+  \centering
+  R: requirement~~~~~~~~~~~~D: design\\
+  \textit{\textbf{D conforms with R}}
+  \end{block}
+  
+  \begin{itemize}
+  \item involves formal specification and proof methods
+  \end{itemize}
+  \begin{figure}
+      \centering
+      \includegraphics[scale = 0.35]{figures/cropped_formal_verification_diag.pdf}
+    %   \caption{ption}
+    %   \label{fig:my_label}
+  \end{figure}
+  
+\end{frame}
+
+
+\begin{frame}{Model Checking}
+    \begin{itemize}
+        \item algorithmic technique to verify temporal properties of transition systems
+        \begin{figure}
+            \centering
+            \includegraphics[scale = 0.35]{figures/cropped_model_checking_diag.pdf}
+            % \caption{Caption}
+            % \label{fig:my_label}
+        \end{figure}
+        \item Linear Hybrid Automata model is transformed to Kripke model and requirements are formalised in CTL language
+    \end{itemize}
+    
+    
+\end{frame}
+
+
+\begin{frame}{Model Checking}
+    \begin{itemize}
+     \item Model checking is used for system verification and validation.
+     \item Model checking requires the system and requirements both to be formulated in some mathematical language.
+     \item We model our heuristic in the form of timed automata. Automata represent logical representation of the individual components of the system.
+     \item Specifications are formulated in the language of Computational Tree Logic (CTL).
+     \item Types of properties in model checking:
+     \begin{itemize}
+      \item Safety
+      \item Liveness
+     \end{itemize}
+
+    \end{itemize}
+
+
+\end{frame}
+
+\begin{frame}{Timed Automata}
+    A timed automata is a tuple $ A = (Q, S, C, E, q_0) $ where, 
+    \begin{itemize}
+        \item Q is a finite set of states of A
+        \item S is a finite set of \textit{actions} of A
+        \item C is a finite set called the clocks of A
+        \item E is a set of edges called \textit{transitions} of A.
+        \item $ q_0 $ is an element of Q called the \textit{initial state}
+        \item An edge(q, a, g, r, $ q^\ensuremath{\prime} $) from E is a transition from q to $ q^\ensuremath{\prime} $ with action a, guard g and clock resets r.
+            
+        \begin{figure}
+            \centering
+            \includegraphics[scale = 0.35]{figures/cropped_timed_automata.pdf}
+            % \caption{Caption}
+            % \label{fig:my_label}
+        \end{figure}
+         
+\end{itemize}
+\end{frame}
+
+
+\begin{frame}{Statistical Model Checking}
+ In Statistical Model Checking (SMC):
+ \begin{itemize}
+  \item Several runs of the system are monitored with respect to a property
+  \item Then statistics is used to give an overall estimate of the correctness of the system \footnotemark \\~\\
+ \end{itemize}
+
+  
+ Due to the dynamic nature of our heuristic, we need to use a tool that enables us to dynamically create instances of vehicles.\\~\\
+ That is the reason we use SMC version of UPPAAL model checker\footnote[4]{\texttt{http://www.uppaal.org/}} to perform model checking of our heuristic.
+ 
+ 
+ 
+ \footnotetext{A. Legay, B. Delahaye, and  S. Bensalem, Statistical model checking: An overview, \textit{International conference on runtime verification}, pp. 122--135, 2010.}
+%  \footnotetext{\texttt{http://www.uppaal.org/}}
+\end{frame}
+
+
+
+\begin{frame}{Property Specification in UPPAAL}
+  UPPAAL requirement specification supports five types of properties as given in Table \ref{ctl_prop}. Here, $ p $ and $ q $ are atomic prepositions.
+  \begin{columns}
+  \column{0.5\linewidth}
+    \justifying
+      \begin{table}
+	\begin{center}
+		\begin{tabular}[c]{||p{3cm}|p{2.5cm}||} 
+		  \hline 
+
+		  \textbf{Name} & \textbf{Example} \\ \hline
+		  Possibly & $ E<>\;p $ \\ \hline
+		  Invariantly & $ A[]\; p $ \\ \hline
+		  Potentially always & $ E[]\; p $ \\ \hline
+		  Eventually & $ A<>\; p $ \\ \hline
+		  Leads to & $ p-->\;q $ \\ \hline
+		\end{tabular}
+		\caption{Properties in UPPAAL} \label{ctl_prop}
+	\end{center}
+    \end{table}
+    
+   \column{0.5\linewidth}
+   \begin{figure}
+        \centering
+        \includegraphics[scale = 0.15]{figures/ctl_diag}
+        \caption{UPPAAL properties}
+        \label{ctl_prop}
+    \end{figure}
+    
+  \end{columns}
+  UPPAAL only supports simple (not nested) queries.
+
+\end{frame}
+
+
+\begin{frame}{Property Specification in UPPAAL-SMC}
+   In UPPAAL-SMC, following four statistical properties can be verified.
+    \begin{itemize}
+      \item Quantitative analysis or probability estimation
+      \begin{itemize}
+       \item eg. $ Pr [<= steps] (<>/[] Expression) $ \\~\\
+      \end{itemize}
+
+      \item Qualitative model checking or hypothesis testing.
+      \begin{itemize}
+       \item eg. $ Pr [<= steps] (<>/[] Expression) (<= / >=) PROB $\\~\\
+      \end{itemize}
+      \item Probability comparison.
+      \begin{itemize}
+       \item eg. $ Pr [<= steps1] (<>/[] Expression1) (<= / >=) Pr [<= steps2] (<>/[] Expression2) $\\~\\
+      \end{itemize}
+      \item Value estimation.
+      \begin{itemize}
+       \item eg. $ E [<= steps] (Expression) $
+      \end{itemize}
+    \end{itemize}
+    
+\end{frame}
+
+
+
+
+
+\section{Formal Verification of Heuristic AIM}
+\begin{frame}{Heuristic AIM UPPAAL model}
+    The UPPAAL model of the Heuristic AIM algorithm contains following five automatons:
+    \begin{enumerate}
+        \item Traffic automaton 
+        \item Vehicle automaton
+        \item Intersection Manager (IM) automaton
+        \item Check lane collision automaton
+        \item Check intersection collision automaton
+    \end{enumerate}
+    We next discuss these automatons in detail.
+
+
+\end{frame}
+
+
+
+\subsection{Traffic Automaton}
+\begin{frame}{Traffic Automaton}
+    This automaton creates instances of Vehicle dynamically using the spawn function.
+    
+    %Insert figure here
+    \begin{figure}
+        \centering
+        \includegraphics[scale = 0.4]{figures/6_automaton_traffic}
+        \caption{Traffic automaton}
+        \label{traffic}
+    \end{figure}
+    
+    The invariant and the guard present in the automaton make sure that the spawn function is called every spawn\_time interval. The spawn\_time parameter can be changed to achieve different traffic densities.\\
+    
+    
+\end{frame}
+
+
+
+
+\subsection{Vehicle Automaton}
+\begin{frame}{Vehicle Automaton 1/2}
+
+  \begin{figure}
+      \centering
+      \includegraphics[scale = 0.30]{figures/7_automaton_vehicle}
+      \caption{Vehicle automaton}
+      \label{vehicle}
+  \end{figure}
+% \end{columns}
+
+
+\end{frame}
+
+
+\begin{frame}{Vehicle Automaton 2/2}
+ Vehicle automaton implements following procedures.
+ \begin{itemize}
+  \item Vehicle initialization.  
+  \item Vehicle movement in lane.
+  \item Vehicle movement in intersection.
+ \end{itemize}
+ 
+\end{frame}
+
+
+\subsection{IM Automaton}
+\begin{frame}{IM Automaton 1/2}
+ \begin{figure}
+      \centering
+      \includegraphics[scale = 0.30]{figures/8_automaton_IM}
+      \caption{IM automaton}
+      \label{vehicle}
+  \end{figure}
+\end{frame}
+
+\begin{frame}{IM Automaton 2/2}
+  \begin{itemize}
+   \item This automaton implements the complete intersection management heuristic.
+   \item The broadcast channel, \textit{veh\_initialized} starts the heuristic pipeline once it gets set.
+   \item FEFS, Window and Reservation velocity are all calculated for the vehicle.
+   \item Final velocity of the vehicle is decided by the \textit{find\_Vfinal()} function.   
+  \end{itemize}  
+\end{frame}
+
+\subsection{Check Collision Automaton}
+\begin{frame}{Collision Detection}
+\begin{itemize}
+ \item To detect any collision in the lane and intersection, we make use of occupancy arrays. 
+ \item Occupancy arrays are arrays representing occupancy in lanes and lane to lane connections with 1 representing occupied and 0 representing unoccupied cell.
+ \item Lane conflicts are detected by checking for length of continuous occurrences of 1.
+ \item Intersection conflicts are detected by checking for simultaneous occupancy of array points corresponding to same conflict point.
+	
+\end{itemize}
+
+ 
+\end{frame}
+
+
+
+
+\begin{frame}{Check Lane Collision}
+ Following automaton checks for lane collisions.  
+ \begin{figure}
+      \centering
+      \includegraphics[scale = 0.40]{figures/10_automaton_checkLaneCollision}
+      \caption{Check lane collision automaton}
+      \label{vehicle}
+  \end{figure}
+ 
+  
+\end{frame}
+
+\begin{frame}{Check Intersection Collision}
+ Following automaton checks for intersection collisions. 
+ 
+ \begin{figure}
+      \centering
+      \includegraphics[scale = 0.40]{figures/11_automaton_checkIntCollision}
+      \caption{Check intersection collision automaton}
+      \label{vehicle}
+  \end{figure}
+\end{frame}
+
+\begin{frame}{Properties Verified}
+ To verify behavior of individual layers of the heuristic, we perform model checking on each layer separately and check for query outputs.
+ Verification for following cases are done.
+ \begin{itemize}
+  \item No collision in lane with $V_{lane}$.
+  \item Possibility of collision inside intersection with $V_{lane}$.
+  \item Possibility of collision inside intersection with only $V_{fefs}$.
+  \item Possibility of collision inside intersection with $V_{fefs}$ and $V_{window}$.
+  \item No collision in lane as well as intersection with complete heuristic involving $V_{fefs}$, $V_{window}$ and $V_{reservation}$.
+  
+  Confidence levels of collisions in each case is given in table \ref{result}.
+ \end{itemize}
+
+\end{frame}
+
+\begin{frame}{Properties Verified}
+  \begin{itemize}
+   \item Property to verify no collision in lane\\
+    \hspace{1cm} \textcolor{blue}{Pr([][0,1000]  number\_of\_lane\_collisions== 0)}    \\~\\
+   \item Property to verify no collision in intersection\\
+    \hspace{1cm} \textcolor{blue}{Pr([][0,1000]  number\_of\_int\_collisions== 0)}
+  \end{itemize}    
+     
+\end{frame}
+
+\section{Result}
+\begin{frame}{Results}
+ \begin{table}
+  \begin{tabular}{| c | l | l | l |}
+  \hline
+  S. No. & $ V\_final $ considering & \pbox{10cm}{Pr. of no lane \\collision} & \pbox{10cm}{Pr. of no intersection \\collision} \\
+  \hline \hline
+  1 & $ V\_lane $ & [0.95, 1.0] & [0.431, 0.531]  \\
+  \hline
+  2 & $ V\_fefs $ & [0.95, 1.0] & [0.564, 0.664]  \\
+  \hline
+  3 & \pbox{10cm}{$ V\_fefs $ \&\\ $ V\_window $} & [0.95, 1.0] & [0.755, 0.855]  \\
+  \hline
+  4 & \pbox{10cm}{$ V\_fefs $, $ V\_window $ \\\& $ V\_reservation $} & [0.95, 1.0] & [0.95, 1.0]\\
+  \hline
+  \end{tabular}
+  \caption{Results} \label{result}
+ \end{table}
+\end{frame}
+
+
+% This is my stuff
+
+\begin{frame}{Publications}
+    \begin{enumerate}
+        \item \textbf{Published:} A.P. Chouhan and G. Banda, Autonomous Intersection Management: A Heuristic Approach, \textit{IEEE Access}, vol. 6, pp. 53287--53295, 2018.\\~\\
+        
+        \item \textbf{Submitted:} A.P. Chouhan and G. Banda, Formal Verification of Heuristic Autonomous Intersection Management using UPPAAL-SMC.
+    \end{enumerate}
+    
+\end{frame}
+
+\begin{frame}{Future Work}
+    \begin{itemize}
+        \item Implementing the heuristic algorithm on an industry grade simulator.
+        \item Formalizing requirements related to delay bounds to verify the delay behavior of the algorithm.
+        \item Working on collision avoidance of ground robots using influence based prioritization. 
+    \end{itemize}
+\end{frame}
+
+
+\begin{frame}
+ \centering \textbf{Thanks for your attention!}\\~\\
+ \centering Questions?
+\end{frame}
+
+\end{document}
